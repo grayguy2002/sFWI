@@ -3,5 +3,7 @@ I want to create a generative diffusion model using wave propogation simualtion 
 
 PAPER DRAFT:  
 TITLE:  
-"Acoustic Wave Equation-Based Velocity Generation via Score-Based Generative Modelling for Full Waveform Inversion: A highly nonlinear inverse problem solving."
+"sFWI: Physics-informed Score-Based Generative Modelling for Robust Full Waveform Inversion"
+
+https://drive.google.com/drive/folders/179iySwfYDSeubwMTJoDpTZ6A_W02vZXx?usp=sharing
 
