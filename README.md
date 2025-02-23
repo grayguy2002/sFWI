@@ -1,4 +1,4 @@
-# diffusion_model_for_wave
+# sFWI: Physics-informed Score-Based Generative Modelling for Robust Full Waveform Inversion
 I want to create a generative diffusion model using wave propogation simualtion data, build it step by step.
 
 PAPER DRAFT:  
