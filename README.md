@@ -36,8 +36,8 @@ We extend our gratitude to the research community and contributors who have supp
 
 ---
 
-### **License**
-The code and resources in this repository are released under [insert license type, e.g., MIT License]. Please refer to the LICENSE file for more details.
+### License
+The code and resources in this repository are released under the **MIT License**. Please refer to the [LICENSE](LICENSE) file for more details. You can also read more about the MIT License [here](https://opensource.org/licenses/MIT).
 
 ---
 
