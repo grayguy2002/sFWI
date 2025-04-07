@@ -11,7 +11,7 @@ Welcome to the **sFWI** repository! This project introduces a novel approach to 
 ---
 
 ## **Code and Implementation**
-The **sFWI**. code is available via Google Colab, ensuring an accessible and user-friendly environment for experimentation and research. Likewise, we rewrote the code to run natively on PC!
+The **sFWI**. code is available via Google Colab, ensuring an accessible and user-friendly environment for experimentation and research. Likewise, we rewrote the code to run natively on PC! "./checkpoints/32_checkpoint_5_cifar10_ncsnpp_continuous.pth" and "./dataset/seismic_dataset-001.pkl" are provided in Google Drive down below.
 
 To get started, use the link below to access the code and related resources:  
 [![Open in Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://drive.google.com/drive/folders/179iySwfYDSeubwMTJoDpTZ6A_W02vZXx?usp=sharing)
