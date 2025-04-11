@@ -1,4 +1,4 @@
-# **sFWI: Physics-Informed Score-Based Generative Modelling for Robust Full Waveform Inversion**
+# **sFWI: Physics-Informed Score-Based Generative Modelling for Robust Full Waveform Inversion** [![DOI](https://zenodo.org/badge/884140754.svg)](https://doi.org/10.5281/zenodo.15167615)
 
 Welcome to the **sFWI** repository! This project introduces a novel approach to Full Waveform Inversion (FWI) using **Physics-Informed Score-Based Generative Modelling**. Our method leverages the power of generative models to enhance the robustness and accuracy of FWI, addressing challenges in geophysical exploration and imaging.
 
