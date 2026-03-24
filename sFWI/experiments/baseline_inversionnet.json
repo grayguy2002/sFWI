@@ -1,0 +1,14 @@
+{
+  "baselines": [
+    {
+      "name": "InversionNet",
+      "type": "inversionnet",
+      "weights": "/content/drive/MyDrive/score_sde_inverseSolving/checkpoints/inversionnet_seam_finetune_best.pth",
+      "strict": false,
+      "init_kwargs": {
+        "input_shape": [1, 100, 300],
+        "output_shape": [200, 200]
+      }
+    }
+  ]
+}

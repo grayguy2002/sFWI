@@ -1,7 +1,3 @@
-"""
-    Refined by Z.G., UCAS
-    Original class modified to support additional features.
-"""
 import tqdm
 import torch
 import numpy as np
@@ -293,7 +289,8 @@ class LangevinDynamics(nn.Module):
         Langevin Dynamics sampling method.
     """
 
-    def __init__(self, num_steps, lr, tau=0.01, lr_min_ratio=0.01):
+    def __init__(self, num_steps, lr, tau=0.01, lr_min_ratio=0.01,
+                 lambda_prior=1.0, lambda_prior_min_ratio=1.0):
         """
             Initializes the Langevin dynamics sampler with the given parameters.
 
@@ -302,12 +299,16 @@ class LangevinDynamics(nn.Module):
                 lr (float): Learning rate.
                 tau (float): Noise parameter.
                 lr_min_ratio (float): Minimum learning rate ratio.
+                lambda_prior (float): Prior term scale on ||x - x0hat||^2.
+                lambda_prior_min_ratio (float): Min ratio for lambda_prior at early annealing steps.
         """
         super().__init__()
         self.num_steps = num_steps
         self.lr = lr
         self.tau = tau
         self.lr_min_ratio = lr_min_ratio
+        self.lambda_prior = lambda_prior
+        self.lambda_prior_min_ratio = lambda_prior_min_ratio
 
     def sample(self, x0hat, operator, measurement, sigma, ratio, record=False, verbose=False):
         """
@@ -329,12 +330,15 @@ class LangevinDynamics(nn.Module):
             self.trajectory = Trajectory()
         pbar = tqdm.trange(self.num_steps) if verbose else range(self.num_steps)
         lr = self.get_lr(ratio)
+        lambda_prior = self.get_lambda_prior(ratio)
         x = x0hat.clone().detach().requires_grad_(True)
         optimizer = torch.optim.SGD([x], lr)
         for _ in pbar:
             optimizer.zero_grad()
-            loss = operator.error(operator(x.to('cuda')), measurement).sum() / (2 * self.tau ** 2)
-            loss += ((x - x0hat.detach()) ** 2).sum() / (2 * sigma ** 2)
+            sigma_eff = max(float(sigma), 1e-8)
+            # data term: compare forward response F(x) with measurement once (avoid F(F(x)))
+            loss = operator.error(x, measurement).sum() / (2 * self.tau ** 2)
+            loss += lambda_prior * ((x - x0hat.detach()) ** 2).sum() / (2 * sigma_eff ** 2)
             loss.backward()
             optimizer.step()
             with torch.no_grad():
@@ -365,6 +369,16 @@ class LangevinDynamics(nn.Module):
         p = 1
         multiplier = (1 ** (1 / p) + ratio * (self.lr_min_ratio ** (1 / p) - 1 ** (1 / p))) ** p
         return multiplier * self.lr
+
+    def get_lambda_prior(self, ratio):
+        """
+            Computes lambda_prior based on annealing ratio.
+            Early stage uses lower prior (more exploration), later stage increases prior (more convergence).
+        """
+        r = min(max(float(ratio), 0.0), 1.0)
+        min_r = min(max(float(self.lambda_prior_min_ratio), 0.0), 1.0)
+        multiplier = min_r + r * (1.0 - min_r)
+        return self.lambda_prior * multiplier
 
 
 class DAPS(nn.Module):
@@ -417,7 +431,7 @@ class DAPS(nn.Module):
         for attempt in range(self.max_attempts):
             # 使用PC sampling
             x0hat, n = sampling_fn(model)
-            print(x0hat)
+
             x0hat_high = F.interpolate(
             x0hat,
             size=(128,128), #hard code here
@@ -454,7 +468,7 @@ class DAPS(nn.Module):
         predictor = ReverseDiffusionPredictor
         corrector = LangevinCorrector
         snr = 0.16
-        n_steps = 1
+        n_steps = 1 # 一步采样
         probability_flow = False
 
         # 设置PC sampler
@@ -501,7 +515,6 @@ class DAPS(nn.Module):
             self.trajectory = Trajectory()
 
         # 首先获取满足要求的初始样本
-
         x_start = self.get_initial_sample(model, x_start, measurement, verbose, evaluator_us, seed)
 
         pbar = tqdm.trange(self.annealing_scheduler.num_steps) if verbose else range(self.annealing_scheduler.num_steps)
@@ -516,23 +529,23 @@ class DAPS(nn.Module):
             diffusion_scheduler = Scheduler(**self.diffusion_scheduler_config, sigma_max=sigma)
             sampler = DiffusionSampler(diffusion_scheduler)
             x0hat = sampler.sample(model, xt, SDE=False, verbose=False)
-            if step %10 == 0 and verbose:
+            if step % 10 == 0 and verbose:
               visualize_data(x0hat,title='x0hat')
 
             # 2. langevin dynamics
             x0y = self.lgvd.sample(x0hat, operator, measurement, sigma, step / self.annealing_scheduler.num_steps)
-            if step %10 == 0 and verbose:
+            if step % 10 == 0 and verbose:
               visualize_data(x0y,title='x0y')
             # 3. forward diffusion
             xt = x0y + torch.randn_like(x0y) * self.annealing_scheduler.sigma_steps[step + 1]
-            if step %10 == 0 and verbose:
+            if step % 10 == 0 and verbose:
               visualize_data(xt,title='xt')
             # 4. evaluation
             x0hat_results = x0y_results = {}
             if evaluator and 'gt' in kwargs:
                 with torch.no_grad():
                     gt = kwargs['gt']
-                    x0hat_results = evaluator(gt, measurement, x0hat) #不一致是因为一个是evaluator一个是evaluator_us
+                    x0hat_results = evaluator(gt, measurement, x0hat)
                     x0y_results = evaluator(gt, measurement, x0y)
 
                 # record
@@ -546,27 +559,86 @@ class DAPS(nn.Module):
                 self._record(xt, x0y, x0hat, sigma, x0hat_results, x0y_results)
         return x0hat
 
-    def sample(self, model, x_start, operator, measurement, evaluator_us=None, evaluator=None, record=False, verbose=False, seed=None, **kwargs):
+    def sample(self, model, x_start, operator, measurement, evaluator_us=None, evaluator=None, record=False, verbose=False, seed=None, return_batch=False, **kwargs):
         '''
-        根据显式的seed来采样，返回tensor包含所有seed_4_SimilarityMatrix对应于seed_index的wasserstein
-        measurement: gt with different seed
+        根据指定的batch_size一次性生成所有采样点，并计算它们与给定measurement的Wasserstein距离。
+        此方法取代了原有的循环结构，以实现批处理加速。
+
+        Args:
+            model: score-based model.
+            x_start (torch.Tensor): 一个用于获取shape和device的参考tensor, shape: [1, C, H, W].
+            operator: The forward operator.
+            measurement (torch.Tensor): 单个ground truth对应的测量数据.
+            evaluator_us: 用于计算Wasserstein距离的评估器.
+            seed (range or list): 用于决定批处理大小(batch_size), 例如 range(50).
+                                  注意：此模式下将生成一个随机批次，单个seed的轨迹不再固定。
+                                  如需复现，请在外部设置torch.manual_seed().
+        Returns:
+            torch.Tensor: 一个包含批次中每个样本与measurement之间Wasserstein距离的tensor.
         '''
-        # 转换seed为列表
-        seed_list = list(seed) if isinstance(seed, (range, list)) else [seed]
-        w_distances = []  # 存储所有seed对应的Wasserstein距离
+        # 1. 根据 seed 参数的长度决定 batch_size
+        try:
+            batch_size = len(seed)
+        except TypeError:
+            # 如果seed不是集合类型（如单个整数），则无法确定批次大小
+            raise ValueError("In batch mode, 'seed' must be a collection (e.g., range or list) to determine the batch size.")
 
-        for sd in (tqdm.tqdm(seed_list, desc="Processing seeds") if verbose else seed_list):
-            if record:
-                self.trajectory = Trajectory()
+        if verbose:
+            print(f"Starting batched Group Score Search with batch_size = {batch_size}")
 
-            # 对每个seed获取Wasserstein距离
-            w = self.get_SM_entry(model, x_start, measurement, verbose, evaluator_us, sd)
-            w_distances.append(w)
+        # 2. 设置PC Sampler的参数, 特别是shape
+        _, C, H, W = x_start.shape
+        shape = (batch_size, C, H, W)
+        predictor = ReverseDiffusionPredictor
+        corrector = LangevinCorrector
+        snr = 0.16
+        n_steps = 1
+        probability_flow = False
 
-        # 将列表转换为torch tensor
-        return torch.tensor(w_distances, device=x_start.device)  # 返回包含所有Wasserstein距离的tensor
+        # 3. 创建PC Sampler实例
+        # 注意: 内部seed设为None，以生成一个随机批次
+        sampling_fn = sampling.get_pc_sampler(
+            sde=self.sde,
+            shape=shape,
+            predictor=predictor,
+            corrector=corrector,
+            inverse_scaler=self.inverse_scaler,
+            snr=snr,
+            n_steps=n_steps,
+            probability_flow=probability_flow,
+            continuous=True,
+            eps=self.sampling_eps,
+            device=x_start.device,
+            seed=None
+        )
 
+        # 4. 一次性生成一个批次的样本
+        x0hat_batch, n = sampling_fn(model)
 
+        # 5. 对生成的批次进行上采样 (如果需要)
+        x0hat_high_batch = F.interpolate(
+            x0hat_batch,
+            size=(128, 128),  # 保持与原有逻辑一致
+            mode='bilinear',
+            align_corners=True
+        )
+
+        # 6. 批量计算Wasserstein距离
+        with torch.no_grad():
+            # 假设evaluator_us可以处理批次化的x0hat_high_batch
+            w_dists_dict = evaluator_us(None, measurement, x0hat_high_batch)
+
+        # 提取距离tensor
+        w_distances = w_dists_dict['w2dist_unsupervised']
+
+        if verbose:
+            print(f"Computed Wasserstein distances for the batch. Shape: {w_distances.shape}")
+
+        # 7. 根据 return_batch 参数决定返回值
+        if return_batch:
+            return w_distances, x0hat_batch
+        else:
+            return w_distances
 
     def _record(self, xt, x0y, x0hat, sigma, x0hat_results, x0y_results):
         """
@@ -589,8 +661,9 @@ class DAPS(nn.Module):
         if 'sigma_max' in diffusion_scheduler_config:
             diffusion_scheduler_config.pop('sigma_max')
 
-        # sigma final of annealing scheduler should always be 0
-        annealing_scheduler_config['sigma_final'] = 0
+        # Keep caller-provided sigma_final if present; fallback to legacy default 0.
+        if 'sigma_final' not in annealing_scheduler_config or annealing_scheduler_config['sigma_final'] is None:
+            annealing_scheduler_config['sigma_final'] = 0
         return annealing_scheduler_config, diffusion_scheduler_config
 
     def get_start(self, ref):

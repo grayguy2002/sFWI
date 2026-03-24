@@ -1,7 +1,3 @@
-"""
-    Refined by Z.G., UCAS
-    Original class modified to support additional features.
-"""
 from abc import ABC, abstractmethod
 from PIL import Image
 import torchvision.transforms as transforms

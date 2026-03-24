@@ -1,4 +1,3 @@
-# load checkpoint fixing for torch 2.6
 import torch
 import tensorflow as tf
 import os
@@ -12,7 +11,7 @@ def restore_checkpoint(ckpt_dir, state, device):
                     f"Returned the same state as input")
     return state
   else:
-    loaded_state = torch.load(ckpt_dir, map_location=device, weights_only=False) # # 显式设置 weights_only=False，绕过安全机制
+    loaded_state = torch.load(ckpt_dir, map_location=device, weights_only=False)
     state['optimizer'].load_state_dict(loaded_state['optimizer'])
     state['model'].load_state_dict(loaded_state['model'], strict=False)
     state['ema'].load_state_dict(loaded_state['ema'])

@@ -32,7 +32,7 @@ class SDE(abc.ABC):
     pass
 
   @abc.abstractmethod
-  def prior_sampling(self, shape):
+  def prior_sampling(self, shape, seed):
     """Generate one sample from the prior distribution, $p_T(x)$."""
     pass
 
@@ -144,7 +144,9 @@ class VPSDE(SDE):
     std = torch.sqrt(1. - torch.exp(2. * log_mean_coeff))
     return mean, std
 
-  def prior_sampling(self, shape):
+  def prior_sampling(self, shape, seed=None):
+    if seed is not None:
+      torch.manual_seed(seed)
     return torch.randn(*shape)
 
   def prior_logp(self, z):
@@ -195,7 +197,9 @@ class subVPSDE(SDE):
     std = 1 - torch.exp(2. * log_mean_coeff)
     return mean, std
 
-  def prior_sampling(self, shape):
+  def prior_sampling(self, shape, seed=None):
+    if seed is not None:
+      torch.manual_seed(seed)
     return torch.randn(*shape)
 
   def prior_logp(self, z):
@@ -235,7 +239,9 @@ class VESDE(SDE):
     mean = x
     return mean, std
 
-  def prior_sampling(self, shape):
+  def prior_sampling(self, shape, seed=None): # changed VESDE of controlable randn noise generation for its experimented effectiveness.
+    if seed is not None:
+      torch.manual_seed(seed)
     return torch.randn(*shape) * self.sigma_max
 
   def prior_logp(self, z):

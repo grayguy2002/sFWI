@@ -1,0 +1,34 @@
+{
+  "baselines": [
+    {
+      "name": "AE",
+      "type": "autoencoder",
+      "weights": "/content/drive/MyDrive/score_sde_inverseSolving/中间结果/ae_seismic.pth"
+    },
+    {
+      "name": "U-Net",
+      "type": "unet",
+      "weights": "/content/drive/MyDrive/score_sde_inverseSolving/中间结果/ModernUNET_seismic.pth"
+    },
+    {
+      "name": "VAE",
+      "type": "vae",
+      "weights": "/content/drive/MyDrive/score_sde_inverseSolving/中间结果/VAE_seismic.pth"
+    },
+    {
+      "name": "DiffAE",
+      "type": "diffae",
+      "weights": "/content/drive/MyDrive/score_sde_inverseSolving/中间结果/custom_diffae_model.pth"
+    },
+    {
+      "name": "InversionNet",
+      "type": "inversionnet",
+      "weights": "/content/drive/MyDrive/score_sde_inverseSolving/中间结果/inversionnet_sfwi.pth",
+      "init_kwargs": {
+        "input_shape": [1, 100, 300],
+        "output_shape": [200, 200]
+      },
+      "strict": false
+    }
+  ]
+}

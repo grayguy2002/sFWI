@@ -1,12 +1,12 @@
 # coding=utf-8
 # Copyright 2020 The Google Research Authors.
-#
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
+
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
+
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -77,7 +77,7 @@ def get_corrector(name):
   return _CORRECTORS[name]
 
 
-def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
+def get_sampling_fn(config, sde, shape, inverse_scaler, eps, seed):
   """Create a sampling function.
 
   Args:
@@ -116,7 +116,8 @@ def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
                                  continuous=config.training.continuous,
                                  denoise=config.sampling.noise_removal,
                                  eps=eps,
-                                 device=config.device)
+                                 device=config.device,
+                                 seed=seed)
   else:
     raise ValueError(f"Sampler name {sampler_name} unknown.")
 
@@ -354,7 +355,7 @@ def shared_corrector_update_fn(x, t, sde, model, corrector, continuous, snr, n_s
 
 def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
                    n_steps=1, probability_flow=False, continuous=False,
-                   denoise=True, eps=1e-3, device='cuda'):
+                   denoise=True, eps=1e-3, device='cuda', seed=None):
   """Create a Predictor-Corrector (PC) sampler.
 
   Args:
@@ -370,6 +371,7 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
     denoise: If `True`, add one-step denoising to the final samples.
     eps: A `float` number. The reverse-time SDE and ODE are integrated to `epsilon` to avoid numerical issues.
     device: PyTorch device.
+    seed: explicit control towards random normalized noise generation. (innovation)
 
   Returns:
     A sampling function that returns samples and the number of function evaluations during sampling.
@@ -397,7 +399,7 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
     """
     with torch.no_grad():
       # Initial sample
-      x = sde.prior_sampling(shape).to(device)
+      x = sde.prior_sampling(shape, seed).to(device)
       timesteps = torch.linspace(sde.T, eps, sde.N, device=device)
 
       for i in range(sde.N):
