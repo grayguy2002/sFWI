@@ -9,7 +9,7 @@ The previous remote codebase is intended to be kept as a **legacy branch**.
 
 ## What Is sFWI
 
-sFWI is a stochastic inversion framework for seismic velocity reconstruction under limited illumination settings (for example, single-shot regimes).  
+sFWI is a score-based inversion framework for seismic velocity reconstruction under limited illumination settings (for example, single-shot regimes).  
 Instead of outputting one deterministic map, sFWI models a posterior family of solutions and supports downstream selection strategies.
 
 ## Why This Repo Is Different
