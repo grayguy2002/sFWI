@@ -1,4 +1,4 @@
-# sFWI: Stochastic Full-Waveform Inversion
+# sFWI: score-based Full-Waveform Inversion
 
 This repository contains the **accepted-code snapshot** of the sFWI project, including:
 - core `sFWI` modules and experiment scripts,
